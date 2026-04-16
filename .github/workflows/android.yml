@@ -43,15 +43,25 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x android/gradlew
 
+    # 🔑 Распаковка keystore из Secret
+    - name: Decode Keystore
+      run: |
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/my-release-key.jks
+
+    # 🔑 Создание gradle.properties с паролями
+    - name: Create gradle.properties for signing
+      run: |
+        cat >> android/gradle.properties <<EOF
+        RELEASE_STORE_FILE=my-release-key.jks
+        RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
+        RELEASE_KEY_ALIAS=${{ secrets.KEY_ALIAS }}
+        RELEASE_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}
+        EOF
+
     - name: Build Release APK with Gradle
       run: |
         cd android
         ./gradlew assembleRelease --stacktrace
-
-    - name: List APK files
-      run: |
-        echo "Looking for APK files..."
-        find android/app/build/outputs/apk/ -name "*.apk" || true
 
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
@@ -59,6 +69,5 @@ jobs:
         name: squares-game-release-apk
         path: |
           android/app/build/outputs/apk/release/*.apk
-          android/app/build/outputs/apk/**/*.apk
         retention-days: 30
         if-no-files-found: warn
